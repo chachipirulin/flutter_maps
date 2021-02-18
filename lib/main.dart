@@ -1,3 +1,9 @@
+// v1_0
+// - Quitados botones de zoom, "Places" title
+// - Se añaden sonidos, assets y demas
+// - TODO: Se escribe el primer elemento de la direccion de API en pantalla
+
+import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_maps/secrets.dart'; // Stores the Google Maps API Key
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -6,6 +12,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'dart:math' show cos, sqrt, asin;
+
+import 'package:audioplayers/audio_cache.dart';
 
 void main() {
   runApp(MyApp());
@@ -36,6 +44,7 @@ class _MapViewState extends State<MapView> {
   Position _currentPosition;
   String _currentAddress;
 
+  final player = AudioCache();
   final startAddressController = TextEditingController();
   final destinationAddressController = TextEditingController();
 
@@ -54,6 +63,8 @@ class _MapViewState extends State<MapView> {
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  final int origORdestin = 1;
+
   Widget _textField({
     TextEditingController controller,
     FocusNode focusNode,
@@ -62,11 +73,21 @@ class _MapViewState extends State<MapView> {
     double width,
     Icon prefixIcon,
     Widget suffixIcon,
+    int origORdestin,
     Function(String) locationCallback,
   }) {
     return Container(
       width: width * 0.8,
       child: TextField(
+        onTap: () {
+          if (origORdestin == 1) {
+            player.play('enter_origin_ES.mp3');
+          } else if (origORdestin == 2) {
+            player.play('enter_destination_ES.mp3');
+          } else if (origORdestin == 3) {
+            player.play('enter_origin_ES.mp3'); // Sin utilizar
+          }
+        },
         onChanged: (value) {
           locationCallback(value);
         },
@@ -128,8 +149,8 @@ class _MapViewState extends State<MapView> {
   // Method for retrieving the address
   _getAddress() async {
     try {
-      List<Placemark> p =
-          await placemarkFromCoordinates(_currentPosition.latitude, _currentPosition.longitude);
+      List<Placemark> p = await placemarkFromCoordinates(
+          _currentPosition.latitude, _currentPosition.longitude);
 
       Placemark place = p[0];
 
@@ -149,16 +170,20 @@ class _MapViewState extends State<MapView> {
     try {
       // Retrieving placemarks from addresses
       List<Location> startPlacemark = await locationFromAddress(_startAddress);
-      List<Location> destinationPlacemark = await locationFromAddress(_destinationAddress);
+      List<Location> destinationPlacemark =
+          await locationFromAddress(_destinationAddress);
 
       if (startPlacemark != null && destinationPlacemark != null) {
         // Use the retrieved coordinates of the current position,
         // instead of the address if the start position is user's
         // current position, as it results in better accuracy.
         Position startCoordinates = _startAddress == _currentAddress
-            ? Position(latitude: _currentPosition.latitude, longitude: _currentPosition.longitude)
+            ? Position(
+                latitude: _currentPosition.latitude,
+                longitude: _currentPosition.longitude)
             : Position(
-                latitude: startPlacemark[0].latitude, longitude: startPlacemark[0].longitude);
+                latitude: startPlacemark[0].latitude,
+                longitude: startPlacemark[0].longitude);
         Position destinationCoordinates = Position(
             latitude: destinationPlacemark[0].latitude,
             longitude: destinationPlacemark[0].longitude);
@@ -203,18 +228,22 @@ class _MapViewState extends State<MapView> {
 
         // Calculating to check that the position relative
         // to the frame, and pan & zoom the camera accordingly.
-        double miny = (startCoordinates.latitude <= destinationCoordinates.latitude)
-            ? startCoordinates.latitude
-            : destinationCoordinates.latitude;
-        double minx = (startCoordinates.longitude <= destinationCoordinates.longitude)
-            ? startCoordinates.longitude
-            : destinationCoordinates.longitude;
-        double maxy = (startCoordinates.latitude <= destinationCoordinates.latitude)
-            ? destinationCoordinates.latitude
-            : startCoordinates.latitude;
-        double maxx = (startCoordinates.longitude <= destinationCoordinates.longitude)
-            ? destinationCoordinates.longitude
-            : startCoordinates.longitude;
+        double miny =
+            (startCoordinates.latitude <= destinationCoordinates.latitude)
+                ? startCoordinates.latitude
+                : destinationCoordinates.latitude;
+        double minx =
+            (startCoordinates.longitude <= destinationCoordinates.longitude)
+                ? startCoordinates.longitude
+                : destinationCoordinates.longitude;
+        double maxy =
+            (startCoordinates.latitude <= destinationCoordinates.latitude)
+                ? destinationCoordinates.latitude
+                : startCoordinates.latitude;
+        double maxx =
+            (startCoordinates.longitude <= destinationCoordinates.longitude)
+                ? destinationCoordinates.longitude
+                : startCoordinates.longitude;
 
         _southwestCoordinates = Position(latitude: miny, longitude: minx);
         _northeastCoordinates = Position(latitude: maxy, longitude: maxx);
@@ -344,55 +373,6 @@ class _MapViewState extends State<MapView> {
             ),
             // Show zoom buttons
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 10.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    ClipOval(
-                      child: Material(
-                        color: Colors.blue[100], // button color
-                        child: InkWell(
-                          splashColor: Colors.blue, // inkwell color
-                          child: SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: Icon(Icons.add),
-                          ),
-                          onTap: () {
-                            mapController.animateCamera(
-                              CameraUpdate.zoomIn(),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    ClipOval(
-                      child: Material(
-                        color: Colors.blue[100], // button color
-                        child: InkWell(
-                          splashColor: Colors.blue, // inkwell color
-                          child: SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: Icon(Icons.remove),
-                          ),
-                          onTap: () {
-                            mapController.animateCamera(
-                              CameraUpdate.zoomOut(),
-                            );
-                          },
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-            // Show the place input fields & button for
-            // showing the route
-            SafeArea(
               child: Align(
                 alignment: Alignment.topCenter,
                 child: Padding(
@@ -410,11 +390,6 @@ class _MapViewState extends State<MapView> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          Text(
-                            'Places',
-                            style: TextStyle(fontSize: 20.0),
-                          ),
-                          SizedBox(height: 10),
                           _textField(
                               label: 'Start',
                               hint: 'Choose starting point',
@@ -422,6 +397,7 @@ class _MapViewState extends State<MapView> {
                               suffixIcon: IconButton(
                                 icon: Icon(Icons.my_location),
                                 onPressed: () {
+                                  // TODO: Estudiar si dejamos este icono o es relevante: ROSA
                                   startAddressController.text = _currentAddress;
                                   _startAddress = _currentAddress;
                                 },
@@ -429,6 +405,7 @@ class _MapViewState extends State<MapView> {
                               controller: startAddressController,
                               focusNode: startAddressFocusNode,
                               width: width,
+                              origORdestin: 1,
                               locationCallback: (String value) {
                                 setState(() {
                                   _startAddress = value;
@@ -442,6 +419,7 @@ class _MapViewState extends State<MapView> {
                               controller: destinationAddressController,
                               focusNode: desrinationAddressFocusNode,
                               width: width,
+                              origORdestin: 2,
                               locationCallback: (String value) {
                                 setState(() {
                                   _destinationAddress = value;
@@ -460,29 +438,38 @@ class _MapViewState extends State<MapView> {
                           ),
                           SizedBox(height: 5),
                           RaisedButton(
-                            onPressed: (_startAddress != '' && _destinationAddress != '')
+                            onPressed: (_startAddress != '' &&
+                                    _destinationAddress != '')
                                 ? () async {
                                     startAddressFocusNode.unfocus();
                                     desrinationAddressFocusNode.unfocus();
                                     setState(() {
                                       if (markers.isNotEmpty) markers.clear();
-                                      if (polylines.isNotEmpty) polylines.clear();
+                                      if (polylines.isNotEmpty)
+                                        polylines.clear();
                                       if (polylineCoordinates.isNotEmpty)
                                         polylineCoordinates.clear();
                                       _placeDistance = null;
                                     });
 
+                                    player.play(
+                                        'calculating_route_&_starting _nav_ES.mp3');
+
                                     _calculateDistance().then((isCalculated) {
                                       if (isCalculated) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
-                                            content: Text('Distance Calculated Sucessfully'),
+                                            content: Text(
+                                                'Distance Calculated Sucessfully'),
                                           ),
                                         );
                                       } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
-                                            content: Text('Error Calculating Distance'),
+                                            content: Text(
+                                                'Error Calculating Distance'),
                                           ),
                                         );
                                       }
@@ -528,6 +515,10 @@ class _MapViewState extends State<MapView> {
                           child: Icon(Icons.my_location),
                         ),
                         onTap: () {
+                          player.play('current_location_as_origin_ES.mp3');
+                          startAddressController.text = _currentAddress;
+                          _startAddress = _currentAddress;
+
                           mapController.animateCamera(
                             CameraUpdate.newCameraPosition(
                               CameraPosition(
